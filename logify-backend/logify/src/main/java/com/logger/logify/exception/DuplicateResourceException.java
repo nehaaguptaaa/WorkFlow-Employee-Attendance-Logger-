@@ -1,0 +1,8 @@
+package com.logger.logify.exception;
+
+public class DuplicateResourceException extends RuntimeException {
+
+    public DuplicateResourceException(String message) {
+        super(message);
+    }
+}
