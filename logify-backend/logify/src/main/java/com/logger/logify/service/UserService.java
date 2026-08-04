@@ -3,6 +3,7 @@ package com.logger.logify.service;
 import com.logger.logify.dto.UserRegisterRequest;
 import com.logger.logify.dto.UserResponse;
 import com.logger.logify.entity.User;
+import com.logger.logify.enums.Role;
 import com.logger.logify.exception.DuplicateResourceException;
 import com.logger.logify.exception.ResourceNotFoundException;
 import com.logger.logify.repository.UserRepository;
@@ -35,7 +36,7 @@ public class UserService {
                 .name(request.getName())
                 .email(request.getEmail())
                 .password(passwordEncoder.encode(request.getPassword()))
-                .role(request.getRole())
+                .role(Role.EMPLOYEE)
                 .department(request.getDepartment())
                 .build();
 
@@ -79,5 +80,14 @@ public class UserService {
             throw new ResourceNotFoundException("User not found with id: " + id);
         }
         userRepository.deleteById(id);
+    }
+
+    // to create admin
+    public UserResponse changeUserRole(Long id, Role newRole) {
+        User user = userRepository.findById(id)
+                .orElseThrow(() -> new ResourceNotFoundException("User not found with id: " + id));
+        user.setRole(newRole);
+        User updated = userRepository.save(user);
+        return mapToUserResponse(updated);
     }
 }

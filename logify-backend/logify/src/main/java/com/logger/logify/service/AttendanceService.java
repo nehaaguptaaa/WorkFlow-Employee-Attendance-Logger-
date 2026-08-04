@@ -15,6 +15,8 @@ import org.springframework.stereotype.Service;
 
 import java.time.LocalDate;
 import java.time.LocalTime;
+import java.util.List;
+import java.util.stream.Collectors;
 
 @Service
 @AllArgsConstructor
@@ -100,5 +102,48 @@ public class AttendanceService {
         return settingsRepository.findBySettingKey("late_threshold")
                 .map(settings -> LocalTime.parse(settings.getSettingValue()))
                 .orElse(LocalTime.of(9, 30));  // default fallback
+    }
+
+    // admin wanted to update any attendance
+    public AttendanceResponse updateAttendance(Long attendanceId, LocalTime checkInTime, LocalTime checkOutTime, AttendanceStatus status) {
+        Attendance attendance = attendanceRepository.findById(attendanceId)
+                .orElseThrow(() -> new ResourceNotFoundException("Attendance record not found with id: " + attendanceId));
+
+        if (checkInTime != null) attendance.setCheckInTime(checkInTime);
+        if (checkOutTime != null) attendance.setCheckOutTime(checkOutTime);
+        if (status != null) attendance.setStatus(status);
+
+        Attendance updated = attendanceRepository.save(attendance);
+        return mapToResponse(updated, "Attendance updated by admin");
+    }
+    //this is for emp to watch all his attendance history
+    public List<AttendanceResponse> getMyAttendanceHistory(String email) {
+        User user = userRepository.findByEmail(email)
+                .orElseThrow(() -> new ResourceNotFoundException("User not found with email: " + email));
+
+        List<Attendance> records = attendanceRepository.findByUser(user);
+
+        return records.stream()
+                .map(attendance -> mapToResponse(attendance, null))  // message null, list mein zaroorat nahi
+                .collect(Collectors.toList());
+    }
+
+    // for admin to see all attendance
+    public List<AttendanceResponse> getAllAttendance() {
+        List<Attendance> records = attendanceRepository.findAll();
+        return records.stream()
+                .map(attendance -> mapToResponse(attendance, null))
+                .collect(Collectors.toList());
+    }
+
+    //for admin to see particular emp attendance
+    public List<AttendanceResponse> getAttendanceByUserId(Long userId) {
+        User user = userRepository.findById(userId)
+                .orElseThrow(() -> new ResourceNotFoundException("User not found with id: " + userId));
+
+        return attendanceRepository.findByUser(user)
+                .stream()
+                .map(attendance -> mapToResponse(attendance, null))
+                .collect(Collectors.toList());
     }
 }
