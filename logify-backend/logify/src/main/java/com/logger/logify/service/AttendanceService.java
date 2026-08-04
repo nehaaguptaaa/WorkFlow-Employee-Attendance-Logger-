@@ -1,0 +1,104 @@
+package com.logger.logify.service;
+
+import com.logger.logify.dto.AttendanceResponse;
+import com.logger.logify.entity.Attendance;
+import com.logger.logify.entity.Settings;
+import com.logger.logify.entity.User;
+import com.logger.logify.enums.AttendanceStatus;
+import com.logger.logify.exception.DuplicateResourceException;
+import com.logger.logify.exception.ResourceNotFoundException;
+import com.logger.logify.repository.AttendanceRepository;
+import com.logger.logify.repository.SettingsRepository;
+import com.logger.logify.repository.UserRepository;
+import lombok.AllArgsConstructor;
+import org.springframework.stereotype.Service;
+
+import java.time.LocalDate;
+import java.time.LocalTime;
+
+@Service
+@AllArgsConstructor
+public class AttendanceService {
+
+    private final AttendanceRepository attendanceRepository;
+    private final UserRepository userRepository;
+    private final SettingsRepository settingsRepository;
+
+    public AttendanceResponse checkIn(String email) {
+
+        //fetch user
+        User user = userRepository.findByEmail(email)
+                .orElseThrow(() -> new ResourceNotFoundException("User not found with email: " + email));
+
+        //from that user fetch attendance
+        attendanceRepository.findByUserAndDate(user, LocalDate.now())
+                .ifPresent(attendance -> {
+                    throw new DuplicateResourceException("Attendance already marked for today.");
+                });
+
+        LocalTime checkInTime = LocalTime.now();
+        // late - check in check from settings table
+        LocalTime lateThreshold = getLateThreshold();
+
+        AttendanceStatus status = checkInTime.isAfter(lateThreshold)
+                ? AttendanceStatus.LATE
+                : AttendanceStatus.PRESENT;
+
+        Attendance attendance = Attendance.builder()
+                .user(user)
+                .date(LocalDate.now())
+                .checkInTime(checkInTime)
+                .status(status)
+                .build();
+
+        Attendance savedAttendance = attendanceRepository.save(attendance);
+        return mapToResponse(savedAttendance, "Checked in successfully");
+    }
+
+
+    public AttendanceResponse checkOut(String email) {
+
+        // Fetch user
+        User user = userRepository.findByEmail(email)
+                .orElseThrow(() ->
+                        new ResourceNotFoundException("User not found with email: " + email));
+
+        // Find today's attendance
+        Attendance attendance = attendanceRepository
+                .findByUserAndDate(user, LocalDate.now())
+                .orElseThrow(() ->
+                        new ResourceNotFoundException("No check-in found for today"));
+
+        // Prevent duplicate checkout
+
+        if (attendance.getCheckOutTime() != null) {
+            throw new DuplicateResourceException("You have already checked out today.");
+        }
+
+        // Set checkout time
+        attendance.setCheckOutTime(LocalTime.now());
+
+        // Update attendance
+        Attendance savedAttendance = attendanceRepository.save(attendance);
+
+        return mapToResponse(savedAttendance, "Checked out successfully");
+    }
+
+    private AttendanceResponse mapToResponse(Attendance attendance, String message) {
+        AttendanceResponse response = new AttendanceResponse();
+        response.setId(attendance.getId());
+        response.setEmployeeName(attendance.getUser().getName());
+        response.setDate(attendance.getDate());
+        response.setCheckInTime(attendance.getCheckInTime());
+        response.setCheckOutTime(attendance.getCheckOutTime());
+        response.setStatus(attendance.getStatus());
+        return response;
+    }
+    //utility method for late check in
+
+    private LocalTime getLateThreshold() {
+        return settingsRepository.findBySettingKey("late_threshold")
+                .map(settings -> LocalTime.parse(settings.getSettingValue()))
+                .orElse(LocalTime.of(9, 30));  // default fallback
+    }
+}
