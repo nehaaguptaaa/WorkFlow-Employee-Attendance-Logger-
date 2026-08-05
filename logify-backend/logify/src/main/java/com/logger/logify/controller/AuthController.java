@@ -10,6 +10,7 @@ import com.logger.logify.repository.UserRepository;
 import com.logger.logify.security.CustomUserDetailsService;
 import com.logger.logify.security.JwtUtil;
 import com.logger.logify.service.UserService;
+import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
@@ -18,6 +19,7 @@ import org.springframework.security.authentication.UsernamePasswordAuthenticatio
 import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.web.bind.annotation.*;
 
+@Tag(name = "Authentication", description = "Public endpoints for user registration and login")
 @RestController
 @RequestMapping("/auth")
 @RequiredArgsConstructor

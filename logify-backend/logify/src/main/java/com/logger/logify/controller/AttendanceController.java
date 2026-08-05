@@ -3,13 +3,14 @@ package com.logger.logify.controller;
 import com.logger.logify.dto.AttendanceResponse;
 import com.logger.logify.dto.AttendanceUpdateRequest;
 import com.logger.logify.service.AttendanceService;
+import io.swagger.v3.oas.annotations.tags.Tag;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
-
+@Tag(name = "Employee Attendance", description = "Endpoints for employees to check in/out and view their attendance")
 @RestController
 @RequestMapping("/employee/attendance")
 @RequiredArgsConstructor

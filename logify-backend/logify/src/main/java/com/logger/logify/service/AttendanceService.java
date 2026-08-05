@@ -1,16 +1,19 @@
 package com.logger.logify.service;
 
 import com.logger.logify.dto.AttendanceResponse;
+import com.logger.logify.dto.EmployeeAttendanceSummary;
 import com.logger.logify.entity.Attendance;
 import com.logger.logify.entity.Settings;
 import com.logger.logify.entity.User;
 import com.logger.logify.enums.AttendanceStatus;
+import com.logger.logify.enums.Role;
 import com.logger.logify.exception.DuplicateResourceException;
 import com.logger.logify.exception.ResourceNotFoundException;
 import com.logger.logify.repository.AttendanceRepository;
 import com.logger.logify.repository.SettingsRepository;
 import com.logger.logify.repository.UserRepository;
 import lombok.AllArgsConstructor;
+import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
 
 import java.time.LocalDate;
@@ -145,5 +148,44 @@ public class AttendanceService {
                 .stream()
                 .map(attendance -> mapToResponse(attendance, null))
                 .collect(Collectors.toList());
+    }
+
+    // automatic absent mark
+    @Scheduled(cron = "0 59 23 * * *")   // roz raat 11:59 PM
+    public void markAbsentees() {
+        List<User> allEmployees = userRepository.findByRole(Role.EMPLOYEE);
+
+        for (User employee : allEmployees) {
+            boolean alreadyMarked = attendanceRepository.findByUserAndDate(employee, LocalDate.now()).isPresent();
+
+            if (!alreadyMarked) {
+                Attendance absentRecord = Attendance.builder()
+                        .user(employee)
+                        .date(LocalDate.now())
+                        .status(AttendanceStatus.ABSENT)
+                        .build();
+                attendanceRepository.save(absentRecord);
+            }
+        }
+    }
+
+    // attendance summary admin ko dikhane k liye
+    public List<EmployeeAttendanceSummary> getMonthlySummary(int month, int year) {
+        LocalDate start = LocalDate.of(year, month, 1);
+        LocalDate end = start.withDayOfMonth(start.lengthOfMonth());
+
+        List<User> allEmployees = userRepository.findByRole(Role.EMPLOYEE);
+
+        return allEmployees.stream()
+                .map(employee -> {
+                    List<Attendance> records = attendanceRepository.findByUserAndDateBetween(employee, start, end);
+
+                    long present = records.stream().filter(a -> a.getStatus() == AttendanceStatus.PRESENT).count();
+                    long absent = records.stream().filter(a -> a.getStatus() == AttendanceStatus.ABSENT).count();
+                    long late = records.stream().filter(a -> a.getStatus() == AttendanceStatus.LATE).count();
+
+                    return new EmployeeAttendanceSummary(employee.getName(), present, absent, late);
+                })
+                .toList();
     }
 }

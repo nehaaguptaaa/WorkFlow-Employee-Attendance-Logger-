@@ -35,4 +35,6 @@ public class LeaveRequest {
     private LeaveStatus status;
 
     private LocalDateTime appliedOn;
+
+    private LocalDateTime reviewedOn;
 }
